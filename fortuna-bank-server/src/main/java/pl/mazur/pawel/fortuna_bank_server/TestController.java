@@ -17,7 +17,7 @@ public class TestController {
     @GetMapping("/demo")
     public String getDemo(){
 
-        SecurityContextHolder.getContext().getAuthentication();
+        SecurityContextHolder.getContext().getAuthentication().getDetails();
 
         i++;
         System.out.println("demo : " + i);

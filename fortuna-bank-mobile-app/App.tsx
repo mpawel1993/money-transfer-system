@@ -1,97 +1,116 @@
-
-import {StyleSheet, Text, View, Button, Animated} from 'react-native';
+import {Button, StyleSheet, Text, View} from 'react-native';
 import React, {useEffect, useState} from "react";
-import {makeRedirectUri, useAuthRequest, useAutoDiscovery} from "expo-auth-session";
+import {
+    CodeChallengeMethod,
+    makeRedirectUri,
+    refreshAsync,
+    ResponseType,
+    useAuthRequest,
+    useAutoDiscovery
+} from "expo-auth-session";
 
 export default function App() {
+
+    const [tmpRefreshToken, setTmpRefreshToken] = useState('');
 
     const [token, setToken] = useState('');
     const redirectUri = makeRedirectUri({
         scheme: 'fortuna'
     });
 
-    const discovery = useAutoDiscovery('http://localhost:8080/realms/fortuna-bank-mobile-app-realm');
+    const discovery = useAutoDiscovery('http://192.168.1.236:8080/realms/fortuna-bank-mobile-app-realm');
     // Create and load an auth request
+
+    // @ts-ignore
     const [request, response, promptAsync] = useAuthRequest(
         {
             clientId: 'fortuna-bank-expo-client',
+            responseType: ResponseType.Code,
+            scopes: ['openid', 'profile', 'email'],
             redirectUri: redirectUri,
-            scopes: ['openid', 'profile'],
+            codeChallengeMethod: CodeChallengeMethod.S256,
         },
-        discovery
-    );
+        discovery);
+
+    useEffect(() => {
+        console.log('here')
+        if (response?.type === 'success') {
+            const {code} = response.params;
+
+            // Use the authorization code to exchange for tokens
+            // @ts-ignore
+            fetch(discovery.tokenEndpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                // @ts-ignore
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    client_id: 'fortuna-bank-expo-client',
+                    code,
+                    redirect_uri: redirectUri,
+                    code_verifier: request?.codeVerifier,
+                }).toString(),
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    // console.log('Access Token:', data.access_token);
+                    // console.log('RefreshToken Token:', data.refresh_token);
+                    setTmpRefreshToken(data.refresh_token);
+                    setToken(data.access_token);
+                })
+                .catch((error) => console.error('Token Exchange Failed:', error));
+        }
+    }, [response]);
+
+    // @ts-ignore
+    function storeRefreshToken(refreshToken) {
+        // await SecureStore.setItemAsync('refreshToken', refreshToken);
+        return setTmpRefreshToken(refreshToken);
+    }
+
+     function getStoredRefreshToken() {
+        return tmpRefreshToken
+    }
+
+    function refreshAccessToken() {
+        const refreshToken = tmpRefreshToken
+        console.log('refresh_token_heja' , tmpRefreshToken)
+        if (!refreshToken) {
+            console.error('No refresh token found!');
+            return null;
+        }
+        try {
+            const tokenResult =  refreshAsync(
+                {
+                    clientId: 'fortuna-bank-expo-client',
+                    // @ts-ignore
+                    refreshToken: refreshToken,
+                },
+                {
+                    tokenEndpoint: discovery?.tokenEndpoint,
+                }
+            );
+
+            console.log('New Access Token:', tmpRefreshToken);
+
+            // Save the new refresh token if it was returned
+            if (tmpRefreshToken) {
+                storeRefreshToken(tmpRefreshToken);
+            }
+
+            return tmpRefreshToken; // Use or store the new access token
+        } catch (error) {
+            console.error('Failed to refresh token:', error);
+            return null;
+        }
+    }
 
     const signIn = () => {
         promptAsync();
     }
 
-    const signOut = async () => {
-        try {
-            await fetch(
-                `http://localhost:8080/realms/fortuna-bank-mobile-app-realm/protocol/openid-connect/logout?id_token_hint=${token}`);
-            console.log('log out')
-        } catch (e) {
-            console.warn(e)
-        }
-    }
-
-    useEffect(() => {
-        // @ts-ignore
-        const getToken = async ({ code, codeVerifier, redirectUri }) => {
-            try {
-                const formData = {
-                    grant_type: 'authorization_code',
-                    client_id: 'fortuna-bank-expo-client',
-                    code: code,
-                    code_verifier: codeVerifier,
-                    redirect_uri: redirectUri,
-                }
-                const formBody = []
-                for (const property in formData) {
-                    var encodedKey = encodeURIComponent(property)
-                    // @ts-ignore
-                    var encodedValue = encodeURIComponent(formData[property])
-                    formBody.push(encodedKey + '=' + encodedValue)
-
-                    console.log('encodedKey', encodedKey)
-                    console.log('encodedValue', encodedValue)
-                }
-
-                const response = await fetch(
-                    `http://localhost:8080/realms/fortuna-bank-mobile-app-realm/protocol/openid-connect/token`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            Accept: 'application/json',
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: formBody.join('&'),
-                    }
-                )
-                if (response.ok) {
-                    const payload = await response.json()
-                    console.log('Ok' , payload);
-                    setToken(payload['access_token']);
-                }
-            } catch (e) {
-                console.warn(e)
-            }
-        }
-        if (response?.type === 'success') {
-            const { code } = response.params
-            getToken({
-                code,
-                codeVerifier: request?.codeVerifier,
-                redirectUri,
-            })
-        } else if (response?.type === 'error') {
-            console.warn('Authentication error: ', response.error)
-        }
-    }, [redirectUri, request?.codeVerifier, response])
-
-
     const makeTestCallToBackend = ()=>  {
-        fetch('http://localhost:8083/test/demo',
+        fetch('http://192.168.1.236:8083/test/demo',
             {
                 headers: {
                     // @ts-ignore
@@ -102,7 +121,6 @@ export default function App() {
             );
     }
 
-
   return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Button title="Login!" disabled={!request} onPress={() => {
@@ -110,7 +128,10 @@ export default function App() {
           }} />
           {response && <View>
               <Text onPress={makeTestCallToBackend}>Test - Backend</Text>
-              <Text onPress={signOut}>Sign Out</Text>
+              <Text/>
+              {/*<Text onPress={signOut}>Sign Out</Text>*/}
+              <Text/>
+              <Text onPress={refreshAccessToken}>Refresh Token</Text>
           </View>}
       </View>
   );
