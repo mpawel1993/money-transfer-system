@@ -18,7 +18,7 @@ export default function App() {
         scheme: 'fortuna'
     });
 
-    const discovery = useAutoDiscovery('http://192.168.1.236:8080/realms/fortuna-bank-mobile-app-realm');
+    const discovery = useAutoDiscovery('http://192.168.1.102:8080/realms/fortuna-bank-mobile-app-realm');
     // Create and load an auth request
 
     // @ts-ignore
@@ -53,7 +53,7 @@ export default function App() {
             })
                 .then((res) => res.json())
                 .then((data) => {
-                    // console.log('Access Token:', data.access_token);
+                    console.log('Access Token:', data.access_token);
                     // console.log('RefreshToken Token:', data.refresh_token);
                     setTmpRefreshToken(data.refresh_token);
                     setToken(data.access_token);
