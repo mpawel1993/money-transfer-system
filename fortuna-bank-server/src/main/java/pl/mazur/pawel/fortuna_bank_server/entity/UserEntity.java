@@ -3,11 +3,9 @@ package pl.mazur.pawel.fortuna_bank_server.entity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
+@Builder
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,4 +18,9 @@ public class UserEntity {
     private Long id;
     private String keyCloakId;
     private String username;
+    private boolean emailVerified;
+    private String preferredUsername;
+    private String givenName;
+    private String familyName;
+    private String email;
 }

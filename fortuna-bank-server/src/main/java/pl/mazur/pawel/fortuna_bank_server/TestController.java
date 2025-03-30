@@ -1,14 +1,9 @@
 package pl.mazur.pawel.fortuna_bank_server;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
-
-import org.springframework.security.core.context.SecurityContextHolder;
 import pl.mazur.pawel.fortuna_bank_server.api.KeyCloakUser;
 import pl.mazur.pawel.fortuna_bank_server.entity.UserEntity;
 import pl.mazur.pawel.fortuna_bank_server.repository.UserEntityRepository;
@@ -30,18 +25,23 @@ public class TestController {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", token);
         HttpEntity<String> entity = new HttpEntity<>(headers);
-        KeyCloakUser response = restTemplate.exchange(
+        var kkUser = restTemplate.exchange(
                 "http://192.168.1.102:8080/realms/fortuna-bank-mobile-app-realm/protocol/openid-connect/userinfo",
                 HttpMethod.GET,
                 entity,
                 KeyCloakUser.class
         ).getBody();
+        var usr = UserEntity.builder()
+                .keyCloakId(kkUser.sub())
+                .username(kkUser.username())
+                .emailVerified(kkUser.emailVerified())
+                .preferredUsername(kkUser.preferredUsername())
+                .givenName(kkUser.givenName())
+                .familyName(kkUser.familyName())
+                .email(kkUser.email())
+                .build();
 
-        var user = new UserEntity();
-        user.setKeyCloakId(response.sub());
-        user.setUsername(response.name());
-//
-        userEntityRepository.save(user);
+        userEntityRepository.save(usr);
         i++;
         System.out.println("demo : " + i);
         return "demo";
